@@ -88,7 +88,7 @@ Give:
 
 
 if __name__ == "__main__":
-    run_paddle_coach()\{workout_summary\}\
+    run_paddle_coach()
 \
 Give:\
 1. Tomorrow\'92s workout (type + duration + intensity)\
