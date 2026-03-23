@@ -70,4 +70,4 @@ def run_paddle_coach():
             date = ""
             if raw_date:
                 dt = datetime.fromisoformat(raw_date.replace("Z", ""))
-                date = dt.strftime("%b %d"
+                date = dt.strftime("%b %d")
