@@ -46,6 +46,8 @@ def run_paddle_coach():
         headers=headers,
     )
     activities = response.json()
+    if not isinstance(activities, list):
+        return "Strava error: " + str(activities), "Could not get workouts from Strava."
 
     workout_summary = ""
     count = 0
