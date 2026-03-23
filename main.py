@@ -38,7 +38,9 @@ def run_paddle_coach():
     )
 
     activities = response.json()
-
+    print("STRAVA RESPONSE:")
+    print(activities)
+ 
     # ----------------------------------------
     # FORMAT WORKOUTS (last 10 relevant)
     # ----------------------------------------
