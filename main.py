@@ -6,6 +6,8 @@ from openai import OpenAI
 import os
 from datetime import datetime
 from flask import Flask
+from apscheduler.schedulers.background import BackgroundScheduler
+import resend
 
 # Import coaching sources and race schedule from separate files
 from sources import SURFSKI_SOURCES, PRIMARY_SOURCE_NAMES
@@ -20,8 +22,10 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 STRAVA_REFRESH_TOKEN = os.getenv("STRAVA_REFRESH_TOKEN")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+resend.api_key = RESEND_API_KEY
 
 # ----------------------------------------
 # FIGURE OUT WHICH RACES ARE STILL UPCOMING
@@ -91,7 +95,7 @@ def run_paddle_coach():
     count = 0
     max_workouts = 10
     today = datetime.now()
-    is_tuesday = today.weekday() == 1  # 0=Monday, 1=Tuesday, etc.
+    is_tuesday = today.weekday() == 1
 
     for act in activities:
         if count >= max_workouts:
@@ -155,9 +159,9 @@ Specific workout recommendation (type, duration, intensity/heart rate target). M
 Remember that on Tuesdays between March 1 and July 1, he has the TNRL race, which is usually 5 miles.
 
 3. STROKE TIP
-Give one specific, actionable surfski or K1 paddle stroke tip to work on. 
-Prioritize concepts and cues from these trusted coaching sources: 
-Mocke Paddling, Oscar Chalupsky, Ivan Lawler (Ultimate Kayaks), 
+Give one specific, actionable surfski or K1 paddle stroke tip to work on.
+Prioritize concepts and cues from these trusted coaching sources:
+Mocke Paddling, Oscar Chalupsky, Ivan Lawler (Ultimate Kayaks),
 K2N Online Paddle School, Paddle Monster, and Paddle 2 Fitness.
 Be specific and practical — give Chris one thing to focus on, not a list.
 At the end of the tip, briefly note the source.
@@ -182,6 +186,49 @@ Recent workouts:
     return workout_summary, ai_response.choices[0].message.content, tnrl_note
 
 # ----------------------------------------
+# SEND DAILY EMAIL
+# Formats the coaching advice as a nice HTML email and sends it via Resend
+# ----------------------------------------
+def send_daily_email():
+    print("Sending daily coaching email...")
+    workout_summary, advice, tnrl_note = run_paddle_coach()
+
+    # Format advice into paragraphs
+    paragraphs = ""
+    for line in advice.strip().split("\n"):
+        if line.strip():
+            paragraphs += f"<p>{line.strip()}</p>"
+
+    html_content = f"""
+    <div style="font-family: Arial; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.6;">
+        <h1>🏄 Your Daily Paddle Coach</h1>
+        {tnrl_note}
+        <h2>Your Recent Workouts</h2>
+        <pre style="background:#f4f4f4; padding:15px; border-radius:8px; white-space: pre-wrap;">{workout_summary}</pre>
+        <h2>Coach Says</h2>
+        <div style="background:#e8f5e9; padding:15px; border-radius:8px;">
+            {paragraphs}
+        </div>
+    </div>
+    """
+
+    resend.Emails.send({
+        "from": "onboarding@resend.dev",
+        "to": "chris@chrispeterson.com",
+        "subject": f"🏄 Paddle Coach — {datetime.now().strftime('%A, %B %d')}",
+        "html": html_content,
+    })
+    print("Email sent!")
+
+# ----------------------------------------
+# SCHEDULER
+# Runs send_daily_email automatically at 5pm Eastern every day
+# ----------------------------------------
+scheduler = BackgroundScheduler(timezone="America/New_York")
+scheduler.add_job(send_daily_email, "cron", hour=17, minute=0)
+scheduler.start()
+
+# ----------------------------------------
 # WEB PAGE
 # This is what you see when you open the URL in your browser
 # ----------------------------------------
@@ -189,7 +236,6 @@ Recent workouts:
 def home():
     workout_summary, advice, tnrl_note = run_paddle_coach()
 
-    # Format the AI response into proper paragraphs
     paragraphs = ""
     for line in advice.strip().split("\n"):
         if line.strip():
@@ -201,19 +247,3 @@ def home():
         <h1>🏄 Paddle Coach</h1>
         {tnrl_note}
         <h2>Your Recent Workouts</h2>
-        <pre style="background:#f4f4f4; padding:15px; border-radius:8px; white-space: pre-wrap;">{workout_summary}</pre>
-        <h2>Coach Says</h2>
-        <div style="background:#e8f5e9; padding:15px; border-radius:8px;">
-            {paragraphs}
-        </div>
-    </body>
-    </html>
-    """
-
-# ----------------------------------------
-# ENTRY POINT
-# Starts the web server when Railway runs the app
-# ----------------------------------------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
