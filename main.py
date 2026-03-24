@@ -119,7 +119,7 @@ def build_chart_data(activities):
     day_map = {}
     for i in range(13, -1, -1):
         d = today - timedelta(days=i)
-        day_map[d] = {"paddle": 0, "race": 0, "strength": False, "label": d.strftime("%m/%d")}
+        day_map[d] = {"paddle": 0, "race": 0, "strength": False, "label": d.strftime("%a %-d %b")}
 
     for act in activities:
         raw_date = act.get("start_date_local")
@@ -427,7 +427,7 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
         'return c.dataset.label + ": " + c.raw + " mi";'
         "}}}},"
         "scales: {"
-        'x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#6e6e73" } },'
+        'x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#6e6e73" }, offset: true },'
         'y: { grid: { color: "#f0f0f0" }, ticks: { font: { size: 10 }, color: "#6e6e73" }, beginAtZero: true }'
         "}}}); </script></body></html>"
     )
