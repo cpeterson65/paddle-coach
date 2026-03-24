@@ -416,9 +416,9 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
         "data: {"
         "labels: " + labels + ","
         "datasets: ["
-        '{ label: "Paddle", data: ' + paddle_data + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "a" },'
-        '{ label: "Race", data: ' + race_data + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "b" },'
-        '{ label: "Strength", data: ' + strength_data + ', backgroundColor: "#34c759", borderRadius: 4, stack: "c" }'
+        '{ label: "Paddle", data: ' + paddle_data + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
+'{ label: "Race", data: ' + race_data + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
+'{ label: "Strength", data: ' + strength_data + ', backgroundColor: "#34c759", borderRadius: 4, stack: "stack" }'
         "]},"
         "options: {"
         "responsive: true, maintainAspectRatio: false,"
