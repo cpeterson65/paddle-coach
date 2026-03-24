@@ -119,7 +119,7 @@ def build_chart_data(activities):
     day_map = {}
     for i in range(13, -1, -1):
         d = today - timedelta(days=i)
-        day_map[d] = {"paddle": 0, "race": 0, "strength": False, "label": d.strftime("%a %-d %b")}
+        day_map[d] = {"paddle": 0, "race": 0, "strength": False, "label": d.strftime("%a")[0]}
 
     for act in activities:
         raw_date = act.get("start_date_local")
