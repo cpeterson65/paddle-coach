@@ -92,6 +92,7 @@ One or two sentences summarizing his recent training load, intensity trends, and
 
 2. TOMORROW'S WORKOUT
 Specific workout recommendation (type, duration, intensity/heart rate target). Make sure it fits his race schedule — he needs to peak for Black Belt on April 18.
+Remember that on Tuesdays between March 1 and July 1, he has the TNRL race, which is usually 5 miles.
 
 3. STROKE TIP
 Give one specific, actionable surfski or K1 paddle stroke tip to work on. 
@@ -99,6 +100,7 @@ Prioritize concepts and cues from these trusted coaching sources:
 Mocke Paddling, Oscar Chalupsky, Ivan Lawler (Ultimate Kayaks), 
 K2N Online Paddle School, Paddle Monster, and Paddle 2 Fitness.
 Be specific and practical — give Chris one thing to focus on, not a list.
+At the end of the tip, briefly note the source.
 
 4. COACH'S NOTE
 One sentence of encouragement or race strategy advice based on where he is in his training cycle.
