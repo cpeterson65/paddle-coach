@@ -1,12 +1,21 @@
+# ----------------------------------------
+# Paddle Coach Agent (Railway-ready)
+# ----------------------------------------
 import requests
 from openai import OpenAI
 import os
 from datetime import datetime
 from flask import Flask
+
+# Import coaching sources and race schedule from separate files
 from sources import SURFSKI_SOURCES, PRIMARY_SOURCE_NAMES
+from races import UPCOMING_RACES
 
 app = Flask(__name__)
 
+# ----------------------------------------
+# API KEYS (from Railway environment variables)
+# ----------------------------------------
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
@@ -14,12 +23,34 @@ STRAVA_REFRESH_TOKEN = os.getenv("STRAVA_REFRESH_TOKEN")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-UPCOMING_RACES = """
-- Black Belt, Miami — April 18, 2026 (12 miles)
-- Hollywood Jungle Row, Hollywood — April 26, 2026 (5 miles)
-- Palm Beach Outrigger Fundraiser, Jupiter — May 23, 2026 (7 miles)
-"""
+# ----------------------------------------
+# FIGURE OUT WHICH RACES ARE STILL UPCOMING
+# Automatically filters out races that have already passed
+# ----------------------------------------
+def get_future_races():
+    today = datetime.now()
+    future = []
+    for race in UPCOMING_RACES:
+        try:
+            race_date = datetime.strptime(race["date"], "%B %d, %Y")
+            if race_date >= today:
+                future.append(race)
+        except ValueError:
+            # If date is approximate (like "October 2026"), always include it
+            future.append(race)
+    return future
 
+def format_races_for_prompt(races):
+    # Turn the race list into a readable string for the AI prompt
+    lines = []
+    for r in races:
+        lines.append(f"- {r['name']} in {r['location']} on {r['date']} ({r['distance']})")
+    return "\n".join(lines)
+
+# ----------------------------------------
+# GET A FRESH STRAVA TOKEN AUTOMATICALLY
+# Strava tokens expire every 6 hours, so we fetch a new one each time
+# ----------------------------------------
 def get_strava_access_token():
     response = requests.post(
         "https://www.strava.com/oauth/token",
@@ -32,29 +63,43 @@ def get_strava_access_token():
     )
     return response.json()["access_token"]
 
+# ----------------------------------------
+# MAIN FUNCTION
+# Fetches Strava workouts and generates AI coaching advice
+# ----------------------------------------
 def run_paddle_coach():
+    # Get a fresh Strava token
     STRAVA_ACCESS_TOKEN = get_strava_access_token()
 
+    # Fetch the last 50 activities from Strava
     headers = {"Authorization": f"Bearer {STRAVA_ACCESS_TOKEN}"}
     response = requests.get(
         "https://www.strava.com/api/v3/athlete/activities?per_page=50",
         headers=headers,
     )
     activities = response.json()
+
+    # If Strava returns an error instead of a list, show it gracefully
     if not isinstance(activities, list):
         return "Strava error: " + str(activities), "Could not get workouts from Strava.", ""
 
+    # ----------------------------------------
+    # FILTER AND FORMAT WORKOUTS
+    # Only include paddle-related activities, up to 10
+    # ----------------------------------------
     workout_summary = ""
     count = 0
     max_workouts = 10
     today = datetime.now()
-    is_tuesday = today.weekday() == 1
+    is_tuesday = today.weekday() == 1  # 0=Monday, 1=Tuesday, etc.
 
     for act in activities:
         if count >= max_workouts:
             break
         name = act.get("name", "").lower()
         sport = act.get("sport_type", "").lower()
+
+        # Include paddles, TNRL races, rides, kayaking, canoeing
         if "paddle" in name or "tnrl" in name or sport in ["ride", "kayaking", "canoeing"]:
             distance = round(act.get("distance", 0) / 1609.34, 2)
             moving_time = round(act.get("moving_time", 0) / 60, 1)
@@ -76,14 +121,29 @@ def run_paddle_coach():
             )
             count += 1
 
+    # ----------------------------------------
+    # TUESDAY TNRL REMINDER
+    # No workout needed on Tuesday race nights
+    # ----------------------------------------
     if is_tuesday:
-        tnrl_note = "<p><strong>Tonight is TNRL race night — enjoy the race, no additional workout needed!</strong></p>"
+        tnrl_note = "<p><strong>🏁 Tonight is TNRL race night — enjoy the race, no additional workout needed!</strong></p>"
     else:
         tnrl_note = ""
 
+    # ----------------------------------------
+    # BUILD THE RACE LIST FOR THE PROMPT
+    # Only show races that haven't happened yet
+    # ----------------------------------------
+    future_races = get_future_races()
+    race_text = format_races_for_prompt(future_races)
+
+    # ----------------------------------------
+    # AI PROMPT
+    # This is what gets sent to GPT to generate the coaching advice
+    # ----------------------------------------
     prompt = f"""
 You are an elite surfski coach. Your athlete is Chris, a competitive surfski paddler training for these upcoming races:
-{UPCOMING_RACES}
+{race_text}
 
 Based on his recent workouts, give him a personalized coaching response with these four sections:
 
@@ -111,23 +171,34 @@ Recent workouts:
 {workout_summary}
 """
 
+    # ----------------------------------------
+    # CALL OPENAI
+    # Send the prompt and get the coaching response
+    # ----------------------------------------
     ai_response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
     )
     return workout_summary, ai_response.choices[0].message.content, tnrl_note
 
+# ----------------------------------------
+# WEB PAGE
+# This is what you see when you open the URL in your browser
+# ----------------------------------------
 @app.route("/")
 def home():
     workout_summary, advice, tnrl_note = run_paddle_coach()
+
+    # Format the AI response into proper paragraphs
     paragraphs = ""
     for line in advice.strip().split("\n"):
         if line.strip():
             paragraphs += f"<p>{line.strip()}</p>"
+
     return f"""
     <html>
     <body style="font-family: Arial; max-width: 650px; margin: 40px auto; padding: 20px; line-height: 1.6;">
-        <h1>Paddle Coach</h1>
+        <h1>🏄 Paddle Coach</h1>
         {tnrl_note}
         <h2>Your Recent Workouts</h2>
         <pre style="background:#f4f4f4; padding:15px; border-radius:8px; white-space: pre-wrap;">{workout_summary}</pre>
@@ -139,6 +210,10 @@ def home():
     </html>
     """
 
+# ----------------------------------------
+# ENTRY POINT
+# Starts the web server when Railway runs the app
+# ----------------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
