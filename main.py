@@ -249,9 +249,9 @@ def home():
     page = (
         "<html><body style='font-family: Arial; max-width: 650px; "
         "margin: 40px auto; padding: 20px; line-height: 1.6;'>"
-        "<h1>Paddle Coach</h1>"
+        "<h1>🛶 Paddle Coach</h1>"
         + tnrl_note
-        + "<h2>Your Recent Workouts</h2>"
+        + "<h2>🗓️ Your Recent Workouts</h2>"
         "<pre style='background:#f4f4f4; padding:15px; border-radius:8px; white-space: pre-wrap;'>"
         + workout_summary
         + "</pre>"
