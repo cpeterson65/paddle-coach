@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 from datetime import datetime
 from flask import Flask
+from sources import SURFSKI_SOURCES, PRIMARY_SOURCE_NAMES
 
 app = Flask(__name__)
 
@@ -93,7 +94,11 @@ One or two sentences summarizing his recent training load, intensity trends, and
 Specific workout recommendation (type, duration, intensity/heart rate target). Make sure it fits his race schedule — he needs to peak for Black Belt on April 18.
 
 3. STROKE TIP
-Give one specific, actionable surfski or K1 paddle stroke tip to work on. Reference techniques from coaches like those at Paddle2Fitness or K2NFitness. Be specific and practical.
+Give one specific, actionable surfski or K1 paddle stroke tip to work on. 
+Prioritize concepts and cues from these trusted coaching sources: 
+Mocke Paddling, Oscar Chalupsky, Ivan Lawler (Ultimate Kayaks), 
+K2N Online Paddle School, Paddle Monster, and Paddle 2 Fitness.
+Be specific and practical — give Chris one thing to focus on, not a list.
 
 4. COACH'S NOTE
 One sentence of encouragement or race strategy advice based on where he is in his training cycle.
