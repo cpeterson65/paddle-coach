@@ -93,10 +93,9 @@ def get_next_race():
 
 
 def days_until_race(race):
-    # Returns how many days until a race, used for periodization
     try:
         race_date = datetime.strptime(race["date"], "%B %d, %Y")
-        return (race_date - now_eastern()).days
+        return (race_date - now_eastern().replace(tzinfo=None)).days
     except ValueError:
         return 999
 
