@@ -453,7 +453,7 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
         )
     else:
         # Effort / suffer score chart — same colors, different metric
-        paddle_effort = json.dumps([int(d["suffer_score"]) if d["paddle"] > 0 else 0 for d in chart_data])
+        paddle_effort = json.dumps([int(d["suffer_score"]) if (d["paddle"] > 0 or d["interval"] > 0) else 0 for d in chart_data])
         race_effort = json.dumps([int(d["suffer_score"]) if d["race"] > 0 else 0 for d in chart_data])
         strength_data = json.dumps([20 if d["strength"] else 0 for d in chart_data])
         tooltip_cb = (
