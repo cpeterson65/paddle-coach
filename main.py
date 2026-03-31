@@ -76,6 +76,7 @@ def get_future_races():
             if race_date >= today:
                 future.append(race)
         except ValueError:
+            # Approximate dates (e.g. "October 2026") are always included
             future.append(race)
     return future
 
@@ -93,6 +94,7 @@ def get_next_race():
 
 
 def days_until_race(race):
+    # Returns how many days until a race, used for periodization
     try:
         race_date = datetime.strptime(race["date"], "%B %d, %Y")
         return (race_date - now_eastern().replace(tzinfo=None)).days
@@ -163,11 +165,12 @@ def build_chart_data(activities):
         day_map[d] = {
             "paddle": 0,
             "race": 0,
-            "strength": False,
             "interval": 0,
+            "strength": False,
             "suffer_score": 0,
-            "label": d.strftime("%a")[0],
+            "label": d.strftime("%a")[0],  # Single letter day: M T W T F S S
         }
+
     for act in activities:
         raw_date = act.get("start_date_local")
         if not raw_date:
@@ -196,6 +199,7 @@ def build_chart_data(activities):
             else:
                 day_map[act_date]["paddle"] += miles
             day_map[act_date]["suffer_score"] += suffer
+
     return [day_map[d] for d in sorted(day_map.keys())]
 
 
@@ -433,6 +437,7 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
 
     if chart_type == "miles":
         paddle_data = json.dumps([round(d["paddle"], 2) for d in chart_data])
+        interval_data = json.dumps([round(d["interval"], 2) for d in chart_data])
         race_data = json.dumps([round(d["race"], 2) for d in chart_data])
         strength_data = json.dumps([3 if d["strength"] else 0 for d in chart_data])
         y_label = "Miles"
@@ -440,14 +445,13 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
             'if (c.dataset.label === "Strength") return "Strength training";'
             'return c.dataset.label + ": " + c.raw + " mi";'
         )
-        interval_data = json.dumps([round(d["interval"], 2) for d in chart_data])
         datasets = (
             '{ label: "Paddle", data: ' + paddle_data + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
             '{ label: "Intervals", data: ' + interval_data + ', backgroundColor: "#9b59b6", borderRadius: 4, stack: "stack" },'
             '{ label: "Race", data: ' + race_data + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
             '{ label: "Strength", data: ' + strength_data + ', backgroundColor: "#34c759", borderRadius: 4, stack: "stack" }'
         )
-else:
+    else:
         # Effort / suffer score chart — same colors, different metric
         paddle_effort = json.dumps([int(d["suffer_score"]) if d["paddle"] > 0 else 0 for d in chart_data])
         race_effort = json.dumps([int(d["suffer_score"]) if d["race"] > 0 else 0 for d in chart_data])
@@ -456,13 +460,12 @@ else:
             'if (c.dataset.label === "Strength") return "Strength training";'
             'return c.dataset.label + " effort: " + c.raw;'
         )
-        interval_data = json.dumps([round(d["interval"], 2) for d in chart_data])
         datasets = (
-            '{ label: "Paddle", data: ' + paddle_data + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
-            '{ label: "Intervals", data: ' + interval_data + ', backgroundColor: "#9b59b6", borderRadius: 4, stack: "stack" },'
-            '{ label: "Race", data: ' + race_data + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
+            '{ label: "Paddle", data: ' + paddle_effort + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
+            '{ label: "Race", data: ' + race_effort + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
             '{ label: "Strength", data: ' + strength_data + ', backgroundColor: "#34c759", borderRadius: 4, stack: "stack" }'
         )
+
     return (
         'const ctx' + canvas_id + ' = document.getElementById("' + canvas_id + '").getContext("2d");'
         'new Chart(ctx' + canvas_id + ', {'
@@ -493,6 +496,7 @@ def build_email_chart_svg(chart_data, chart_type="miles"):
 
     if chart_type == "miles":
         values_paddle = [d["paddle"] for d in chart_data]
+        values_interval = [d["interval"] for d in chart_data]
         values_race = [d["race"] for d in chart_data]
         values_strength = [3 if d["strength"] else 0 for d in chart_data]
         unit = "mi"
@@ -502,7 +506,8 @@ def build_email_chart_svg(chart_data, chart_type="miles"):
         values_strength = [20 if d["strength"] else 0 for d in chart_data]
         unit = "effort"
 
-    all_vals = [p + r + s for p, r, s in zip(values_paddle, values_race, values_strength)]
+    values_interval = locals().get('values_interval', [0]*14)
+    all_vals = [p + iv + r + s for p, iv, r, s in zip(values_paddle, values_interval, values_race, values_strength)]
     max_val = max(all_vals) if max(all_vals) > 0 else 1
 
     bars = ""
@@ -513,6 +518,7 @@ def build_email_chart_svg(chart_data, chart_type="miles"):
 
         # Stacked: paddle + race + strength
         p = values_paddle[i]
+        iv = values_interval[i] if 'values_interval' in dir() else 0
         r = values_race[i]
         s = values_strength[i]
 
@@ -520,10 +526,11 @@ def build_email_chart_svg(chart_data, chart_type="miles"):
             return max(2, int(v / max_val * bar_area_height)) if v > 0 else 0
 
         ph = bar_h(p)
+        ivh = bar_h(iv)
         rh = bar_h(r)
         sh = bar_h(s)
 
-        # Draw from bottom up
+        # Draw from bottom up: strength, race, intervals, paddle
         y_bottom = bar_area_height
         if sh > 0:
             bars += f'<rect x="{x}" y="{y_bottom - sh}" width="{bar_width}" height="{sh}" fill="#34c759" rx="2"/>'
@@ -531,6 +538,9 @@ def build_email_chart_svg(chart_data, chart_type="miles"):
         if rh > 0:
             bars += f'<rect x="{x}" y="{y_bottom - rh}" width="{bar_width}" height="{rh}" fill="#ff6b35" rx="2"/>'
             y_bottom -= rh
+        if ivh > 0:
+            bars += f'<rect x="{x}" y="{y_bottom - ivh}" width="{bar_width}" height="{ivh}" fill="#9b59b6" rx="2"/>'
+            y_bottom -= ivh
         if ph > 0:
             bars += f'<rect x="{x}" y="{y_bottom - ph}" width="{bar_width}" height="{ph}" fill="#3a7bd5" rx="2"/>'
 
@@ -571,6 +581,8 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
             '<div style="display:flex;gap:16px;margin-top:8px;">'
             '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73;">'
             '<div style="width:10px;height:10px;background:#3a7bd5;border-radius:2px;"></div>Paddle</div>'
+            '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73;">'
+            '<div style="width:10px;height:10px;background:#9b59b6;border-radius:2px;"></div>Intervals</div>'
             '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73;">'
             '<div style="width:10px;height:10px;background:#ff6b35;border-radius:2px;"></div>Race</div>'
             '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73;">'
