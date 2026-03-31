@@ -164,10 +164,10 @@ def build_chart_data(activities):
             "paddle": 0,
             "race": 0,
             "strength": False,
+            "interval": 0,
             "suffer_score": 0,
-            "label": d.strftime("%a")[0],  # Single letter day: M T W T F S S
+            "label": d.strftime("%a")[0],
         }
-
     for act in activities:
         raw_date = act.get("start_date_local")
         if not raw_date:
@@ -191,9 +191,11 @@ def build_chart_data(activities):
             day_map[act_date]["suffer_score"] += suffer
         elif category == "paddle":
             miles = round(act.get("distance", 0) / 1609.34, 2)
-            day_map[act_date]["paddle"] += miles
+            if is_interval_session(name):
+                day_map[act_date]["interval"] += miles
+            else:
+                day_map[act_date]["paddle"] += miles
             day_map[act_date]["suffer_score"] += suffer
-
     return [day_map[d] for d in sorted(day_map.keys())]
 
 
@@ -438,12 +440,14 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
             'if (c.dataset.label === "Strength") return "Strength training";'
             'return c.dataset.label + ": " + c.raw + " mi";'
         )
+        interval_data = json.dumps([round(d["interval"], 2) for d in chart_data])
         datasets = (
             '{ label: "Paddle", data: ' + paddle_data + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
+            '{ label: "Intervals", data: ' + interval_data + ', backgroundColor: "#9b59b6", borderRadius: 4, stack: "stack" },'
             '{ label: "Race", data: ' + race_data + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
             '{ label: "Strength", data: ' + strength_data + ', backgroundColor: "#34c759", borderRadius: 4, stack: "stack" }'
         )
-    else:
+else:
         # Effort / suffer score chart — same colors, different metric
         paddle_effort = json.dumps([int(d["suffer_score"]) if d["paddle"] > 0 else 0 for d in chart_data])
         race_effort = json.dumps([int(d["suffer_score"]) if d["race"] > 0 else 0 for d in chart_data])
@@ -452,12 +456,13 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
             'if (c.dataset.label === "Strength") return "Strength training";'
             'return c.dataset.label + " effort: " + c.raw;'
         )
+        interval_data = json.dumps([round(d["interval"], 2) for d in chart_data])
         datasets = (
-            '{ label: "Paddle", data: ' + paddle_effort + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
-            '{ label: "Race", data: ' + race_effort + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
+            '{ label: "Paddle", data: ' + paddle_data + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
+            '{ label: "Intervals", data: ' + interval_data + ', backgroundColor: "#9b59b6", borderRadius: 4, stack: "stack" },'
+            '{ label: "Race", data: ' + race_data + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
             '{ label: "Strength", data: ' + strength_data + ', backgroundColor: "#34c759", borderRadius: 4, stack: "stack" }'
         )
-
     return (
         'const ctx' + canvas_id + ' = document.getElementById("' + canvas_id + '").getContext("2d");'
         'new Chart(ctx' + canvas_id + ', {'
@@ -670,6 +675,7 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
         '<div class="chart-wrap"><canvas id="trainingChart"></canvas></div>'
         '<div class="legend">'
         '<div class="legend-item"><div class="legend-dot" style="background:#3a7bd5;"></div>Paddle</div>'
+        '<div class="legend-item"><div class="legend-dot" style="background:#9b59b6;"></div>Intervals</div>'
         '<div class="legend-item"><div class="legend-dot" style="background:#ff6b35;"></div>Race</div>'
         '<div class="legend-item"><div class="legend-dot" style="background:#34c759;"></div>Strength</div>'
         '</div></div>'
@@ -680,6 +686,7 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
         '<div class="chart-wrap"><canvas id="effortChart"></canvas></div>'
         '<div class="legend">'
         '<div class="legend-item"><div class="legend-dot" style="background:#3a7bd5;"></div>Paddle</div>'
+        '<div class="legend-item"><div class="legend-dot" style="background:#9b59b6;"></div>Intervals</div>'
         '<div class="legend-item"><div class="legend-dot" style="background:#ff6b35;"></div>Race</div>'
         '<div class="legend-item"><div class="legend-dot" style="background:#34c759;"></div>Strength</div>'
         '</div></div>'
