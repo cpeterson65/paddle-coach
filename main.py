@@ -68,7 +68,7 @@ SOURCE_LINKS = {
 # Automatically filters out races that have already passed
 # ----------------------------------------
 def get_future_races():
-    today = now_eastern()
+    today = now_eastern().replace(tzinfo=None)
     future = []
     for race in UPCOMING_RACES:
         try:
@@ -76,7 +76,6 @@ def get_future_races():
             if race_date >= today:
                 future.append(race)
         except ValueError:
-            # Approximate dates (e.g. "October 2026") are always included
             future.append(race)
     return future
 
