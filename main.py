@@ -9,6 +9,18 @@ from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
 import resend
 import json
+import pytz
+
+# ----------------------------------------
+# TIMEZONE HELPER
+# Always use Eastern time so dates are correct in both the web
+# version and the scheduled 9pm email. Railway servers run in UTC
+# which is why the email was showing the wrong day.
+# ----------------------------------------
+EASTERN = pytz.timezone("America/New_York")
+
+def now_eastern():
+    return datetime.now(EASTERN)
 
 # Import coaching sources and race schedule from separate files
 from sources import SURFSKI_SOURCES, PRIMARY_SOURCE_NAMES
@@ -56,7 +68,7 @@ SOURCE_LINKS = {
 # Automatically filters out races that have already passed
 # ----------------------------------------
 def get_future_races():
-    today = datetime.now()
+    today = now_eastern()
     future = []
     for race in UPCOMING_RACES:
         try:
@@ -85,7 +97,7 @@ def days_until_race(race):
     # Returns how many days until a race, used for periodization
     try:
         race_date = datetime.strptime(race["date"], "%B %d, %Y")
-        return (race_date - datetime.now()).days
+        return (race_date - now_eastern()).days
     except ValueError:
         return 999
 
@@ -131,11 +143,22 @@ def classify_activity(name, sport):
 
 
 # ----------------------------------------
+# DETECT INTERVAL SESSIONS
+# Returns True if the activity name suggests intervals.
+# Chris will name sessions with "interval", "intervals", or "int"
+# ----------------------------------------
+def is_interval_session(name):
+    name_lower = name.lower()
+    keywords = ["interval", "intervals", " int ", "int-", "tempo", "threshold", "fartlek"]
+    return any(k in name_lower for k in keywords)
+
+
+# ----------------------------------------
 # BUILD 14-DAY CHART DATA
 # Includes miles (paddle/race) and suffer score (relative effort) per day
 # ----------------------------------------
 def build_chart_data(activities):
-    today = datetime.now().date()
+    today = now_eastern().date()
     day_map = {}
     for i in range(13, -1, -1):
         d = today - timedelta(days=i)
@@ -207,7 +230,13 @@ def build_workout_summary(activities):
                 hr_text += f", max HR {int(max_hr)}"
             if suffer:
                 hr_text += f", effort {int(suffer)}"
-            tag = " [RACE]" if category == "race" else ""
+            # Tag races and interval sessions so the AI can see them clearly
+            if category == "race":
+                tag = " [RACE]"
+            elif is_interval_session(name):
+                tag = " [INTERVALS]"
+            else:
+                tag = ""
             summary += (
                 f"{count + 1}. {date} - {name}{tag} - "
                 f"{distance} mi, {moving_time} min{hr_text}\n"
@@ -250,6 +279,15 @@ def build_training_context(chart_data):
         context += f"Chris has had {consecutive_rest} consecutive rest days — body is likely recovered and ready for a quality session. "
     elif consecutive_rest == 0:
         context += "Chris paddled today or yesterday — consider recovery needs. "
+
+    # IMPORTANT: prevent consistency contradiction
+    # If the most recent session was short or low effort, assume it was intentional recovery
+    # Do not flag it as inconsistency or poor performance
+    context += (
+        "IMPORTANT COACHING RULE: If the most recent session was short, easy, or low effort, "
+        "assume it was intentional recovery — do not criticize it or describe it as inconsistent. "
+        "Only flag inconsistency if there is a clear multi-day pattern of missed sessions without explanation. "
+    )
 
     return context
 
@@ -297,7 +335,7 @@ def run_paddle_coach():
     workout_summary = build_workout_summary(activities)
     training_context = build_training_context(chart_data)
 
-    today = datetime.now()
+    today = now_eastern()
     is_tuesday = today.weekday() == 1
     tomorrow_is_tuesday = (today.weekday() + 1) % 7 == 1
     tnrl_note = "Tonight is TNRL race night - enjoy the race, no additional workout needed!" if is_tuesday else ""
@@ -334,11 +372,15 @@ def run_paddle_coach():
         "Rules:\n"
         "- If he has had 2 or more consecutive rest days, the body is recovered — prescribe a quality session.\n"
         "- If he has paddled hard multiple days in a row with high effort scores, prescribe recovery or rest.\n"
+        "- Vary session types across the week: mix long endurance, intervals, and easy recovery paddles.\n"
+        "- Interval sessions are shown as [INTERVALS] in the workout list — use these to gauge how recently he has done high-intensity work.\n"
+        "- If he has not done an interval session in 4 or more days and is not in taper, consider prescribing one.\n"
         "- In the 2 weeks before a race, taper: reduce volume, maintain some intensity.\n"
         "- In the week before a race, prescribe mostly easy paddling or rest.\n"
         "- On race day itself, just a brief warm-up paddle.\n"
         "- If tomorrow is a Tuesday between March 1 and July 1, remind him about TNRL instead of prescribing a workout.\n"
         "- If a rest day is genuinely the right call, say so clearly and explain why.\n"
+        "- Do NOT criticize a recent easy or short session — assume it was intentional recovery.\n"
         "Give type, duration, and a specific heart rate target or effort level.\n\n"
 
         "3. STROKE TIP\n"
@@ -544,7 +586,7 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
             '<div style="margin-bottom:20px;">'
             '<div style="font-size:12px;font-weight:600;letter-spacing:0.1em;color:#6e6e73;text-transform:uppercase;">Daily Briefing</div>'
             '<div style="font-size:28px;font-weight:700;color:#1d1d1f;margin-top:4px;">Paddle Coach</div>'
-            '<div style="font-size:14px;color:#6e6e73;margin-top:2px;">' + datetime.now().strftime("%A, %B %d, %Y") + '</div>'
+            '<div style="font-size:14px;color:#6e6e73;margin-top:2px;">' + now_eastern().strftime("%A, %B %d, %Y") + '</div>'
             '</div>'
 
             + tnrl_html
@@ -619,7 +661,7 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
         '<div class="header">'
         '<div class="header-label">Daily Briefing</div>'
         '<div class="header-title">Paddle Coach</div>'
-        '<div class="header-date">' + datetime.now().strftime("%A, %B %d, %Y") + '</div>'
+        '<div class="header-date">' + now_eastern().strftime("%A, %B %d, %Y") + '</div>'
         '</div>'
 
         + tnrl_html
@@ -674,7 +716,7 @@ def send_daily_email():
     resend.Emails.send({
         "from": "onboarding@resend.dev",
         "to": "chris@chrispeterson.com",
-        "subject": "Paddle Coach - " + datetime.now().strftime("%A, %B %d"),
+        "subject": "Paddle Coach - " + now_eastern().strftime("%A, %B %d"),
         "html": html_content,
     })
     print("Email sent!")
