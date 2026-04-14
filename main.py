@@ -343,10 +343,20 @@ def run_paddle_coach():
     future_races = get_future_races()
     race_text = format_races_for_prompt(future_races)
     next_race = get_next_race()
+    today = now_eastern().replace(tzinfo=None)
+    next_7_days = []
+    for i in range(1, 8):
+        day = today + timedelta(days=i)
+        day_str = day.strftime("%A %B %d")
+        race_on_day = next((r["name"] for r in future_races if r["date"] == day.strftime("%B %d, %Y")), None)
+        next_7_days.append(day_str + (" [RACE DAY: " + race_on_day + "]" if race_on_day else ""))
+
     next_race_text = (
         next_race["name"] + " on " + next_race["date"] + " (" + next_race["distance"] + ")"
         + " — " + str(days_until_race(next_race)) + " days away"
     ) if next_race else "no upcoming races"
+
+    next_7_days_text = "\n".join(next_7_days)
 
     # ----------------------------------------
     # AI PROMPT
@@ -358,6 +368,7 @@ def run_paddle_coach():
         "a competitive surfski paddler in South Florida.\n\n"
         "UPCOMING RACES:\n" + race_text
         + "\n\nNEXT RACE: " + next_race_text
+        + "\n\nNEXT 7 DAYS (use these exact dates when planning workouts and the 3-session preview):\n" + next_7_days_text
         + "\n\nRECENT TRAINING CONTEXT:\n" + training_context
         + "\n\nRECENT WORKOUTS (last 10 paddles, most recent first):\n" + workout_summary
         + "\n\nWrite a coaching briefing with exactly these four sections. "
@@ -449,7 +460,7 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
         )
     else:
         # Effort / suffer score chart — same colors, different metric
-        paddle_effort = json.dumps([int(d["suffer_score"]) if d["paddle"] > 0 else 0 for d in chart_data])
+        paddle_effort = json.dumps([int(d["suffer_score"]) if (d["paddle"] > 0 or d["interval"] > 0) else 0 for d in chart_data])
         race_effort = json.dumps([int(d["suffer_score"]) if d["race"] > 0 else 0 for d in chart_data])
         strength_data = json.dumps([20 if d["strength"] else 0 for d in chart_data])
         tooltip_cb = (
