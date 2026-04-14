@@ -365,7 +365,7 @@ def run_paddle_coach():
     # ----------------------------------------
     prompt = (
         "You are an elite surfski coach writing a daily coaching briefing for Chris, "
-        "a competitive surfski paddler in South Florida.\n\n"
+        "a male born in 1967 competitive surfski paddler in South Florida.\n\n"
         "UPCOMING RACES:\n" + race_text
         + "\n\nNEXT RACE: " + next_race_text
         + "\n\nNEXT 7 DAYS (use these exact dates when planning workouts and the 3-session preview):\n" + next_7_days_text
@@ -389,12 +389,14 @@ def run_paddle_coach():
         "- In the 2 weeks before a race, taper: reduce volume, maintain some intensity.\n"
         "- In the week before a race, prescribe mostly easy paddling or rest.\n"
         "- On race day itself, just a brief warm-up paddle.\n"
-        "- If tomorrow is a Tuesday between March 1 and July 1, remind him about TNRL instead of prescribing a workout.\n"
+        "- If tomorrow is a Tuesday during daylight saving time, remind him about TNRL instead of prescribing a workout.\n"
         "- If a rest day is genuinely the right call, say so clearly and explain why.\n"
         "- Do NOT criticize a recent easy or short session — assume it was intentional recovery.\n"
         "Give type, duration, and a specific heart rate target or effort level.\n"
-        "Then on a new line, add one natural sentence previewing the following 3 sessions in simple terms "
-        "(session types only, e.g. After this, plan for an interval session, a long easy paddle, and a rest day.).\n\n"
+        "Then on a new line, add one natural sentence previewing the next 3 sessions after that, "
+        "mapping them to the actual dates shown in NEXT 7 DAYS above. "
+        "Race days must show as 'race day' — never schedule a hard session or rest day on a race date. "
+"Example format: After this, Wednesday is a rest day, Thursday is an easy paddle, and Friday is race day.\n\n"
 
         "3. STROKE TIP\n"
         "One specific, actionable technique cue for surfski or K1 paddling — not a list. "
