@@ -6,8 +6,6 @@ from openai import OpenAI
 import os
 from datetime import datetime, timedelta
 from flask import Flask
-from apscheduler.schedulers.background import BackgroundScheduler
-import resend
 import json
 import pytz
 
@@ -35,10 +33,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 STRAVA_REFRESH_TOKEN = os.getenv("STRAVA_REFRESH_TOKEN")
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
-resend.api_key = RESEND_API_KEY
 
 # ----------------------------------------
 # SOURCE LINKS
@@ -371,8 +367,8 @@ def run_paddle_coach():
         "Two sentences max. Assess his recent load, intensity, and relative effort trends. "
         "Tell him honestly how his training is tracking toward his next race.\n\n"
 
-        "2. TOMORROW'S WORKOUT\n"
-        "Design a session that fits his periodization toward the next race. "
+        "2. NEXT WORKOUT\n"
+        "Design the next session that fits his periodization toward the next race. "
         "Rules:\n"
         "- If he has had 2 or more consecutive rest days, the body is recovered — prescribe a quality session.\n"
         "- If he has paddled hard multiple days in a row with high effort scores, prescribe recovery or rest.\n"
@@ -385,20 +381,20 @@ def run_paddle_coach():
         "- If tomorrow is a Tuesday between March 1 and July 1, remind him about TNRL instead of prescribing a workout.\n"
         "- If a rest day is genuinely the right call, say so clearly and explain why.\n"
         "- Do NOT criticize a recent easy or short session — assume it was intentional recovery.\n"
-        "Give type, duration, and a specific heart rate target or effort level.\n\n"
+        "Give type, duration, and a specific heart rate target or effort level.\n"
+        "Then on a new line, add one natural sentence previewing the following 3 sessions in simple terms "
+        "(session types only, e.g. After this, plan for an interval session, a long easy paddle, and a rest day.).\n\n"
 
         "3. STROKE TIP\n"
         "One specific, actionable technique cue for surfski or K1 paddling — not a list. "
-        "Draw from these trusted coaches (in priority order): "
-        "Boyan Zlatarev (Surfski Center Tarifa), Oscar Chalupsky, Mocke Paddling (Dawid & Jasper Mocke), "
-        "Ivan Lawler, Greg Barton, Sean Rice (PaddleLife), K2N Online Paddle School, Paddle 2 Fitness (Julian Norton-Smith). "
+        "Draw from these trusted coaches — rotate between them and do not over-rely on any single source: "
+        "Boyan Zlatarev (Surfski Center Tarifa), Mocke Paddling (Dawid & Jasper Mocke), "
+        "Ivan Lawler, Greg Barton, Sean Rice (PaddleLife), K2N Online Paddle School, "
+        "Paddle 2 Fitness (Julian Norton-Smith), Oscar Chalupsky. "
+        "Treat all of these coaches as equally weighted — vary your selections across days. "
         "The tip must be applicable to surfski or K1 — not SUP-only or OC-only technique. "
         "Downwind technique, wave reading, and ocean racing tips are all valid. "
-        "End with: (Source: [exact coach or source name]) — even if no video link is available, always credit the source.\n\n"
-
-        "4. COACH'S NOTE\n"
-        "One sentence. Motivational or tactical. Make it feel personal to where Chris is right now "
-        "in his training cycle relative to his next race.\n"
+        "End with: (Source: [exact coach or source name]) — even if no video link is available, always credit the source.\n"
     )
 
     ai_response = client.chat.completions.create(
@@ -413,7 +409,7 @@ def run_paddle_coach():
 # PARSE AI ADVICE INTO SECTIONS
 # ----------------------------------------
 def parse_sections(advice):
-    sections = {"PERFORMANCE SUMMARY": "", "TOMORROW'S WORKOUT": "", "STROKE TIP": "", "COACH'S NOTE": ""}
+    sections = {"PERFORMANCE SUMMARY": "", "NEXT WORKOUT": "", "STROKE TIP": ""}
     current_section = None
     for line in advice.strip().split("\n"):
         stripped = line.strip()
@@ -453,7 +449,7 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
         )
     else:
         # Effort / suffer score chart — same colors, different metric
-        paddle_effort = json.dumps([int(d["suffer_score"]) if (d["paddle"] > 0 or d["interval"] > 0) else 0 for d in chart_data])
+        paddle_effort = json.dumps([int(d["suffer_score"]) if d["paddle"] > 0 else 0 for d in chart_data])
         race_effort = json.dumps([int(d["suffer_score"]) if d["race"] > 0 else 0 for d in chart_data])
         strength_data = json.dumps([20 if d["strength"] else 0 for d in chart_data])
         tooltip_cb = (
@@ -558,87 +554,13 @@ def build_email_chart_svg(chart_data, chart_type="miles"):
 # ----------------------------------------
 # BUILD HTML PAGE (web or email)
 # ----------------------------------------
-def build_html_page(chart_data, advice, tnrl_note, is_email=False):
+def build_html_page(chart_data, advice, tnrl_note):
     sections = parse_sections(advice)
-    sections["STROKE TIP"] = linkify_source(sections["STROKE TIP"].strip(), for_email=is_email)
+    sections["STROKE TIP"] = linkify_source(sections["STROKE TIP"].strip())
 
     tnrl_html = ""
     if tnrl_note:
-        if is_email:
-            tnrl_html = '<div style="background:#fff3cd;border-radius:12px;padding:14px 18px;font-size:14px;font-weight:500;color:#856404;margin-bottom:20px;">' + tnrl_note + '</div>'
-        else:
-            tnrl_html = '<div class="tnrl-banner">' + tnrl_note + '</div>'
-
-    # ----------------------------------------
-    # EMAIL VERSION
-    # Uses inline SVG charts (no JavaScript needed in email)
-    # ----------------------------------------
-    if is_email:
-        miles_svg = build_email_chart_svg(chart_data, "miles")
-        effort_svg = build_email_chart_svg(chart_data, "effort")
-
-        legend_html = (
-            '<div style="display:flex;gap:16px;margin-top:8px;">'
-            '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73;">'
-            '<div style="width:10px;height:10px;background:#3a7bd5;border-radius:2px;"></div>Paddle</div>'
-            '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73;">'
-            '<div style="width:10px;height:10px;background:#9b59b6;border-radius:2px;"></div>Intervals</div>'
-            '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73;">'
-            '<div style="width:10px;height:10px;background:#ff6b35;border-radius:2px;"></div>Race</div>'
-            '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6e6e73;">'
-            '<div style="width:10px;height:10px;background:#34c759;border-radius:2px;"></div>Strength</div>'
-            '</div>'
-        )
-
-        return (
-            "<!DOCTYPE html><html><head>"
-            '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            "</head>"
-            "<body style=\"margin:0;padding:0;background:#ffffff;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;\">"
-            '<div style="max-width:600px;margin:0 auto;padding:32px 24px;">'
-
-            # Header
-            '<div style="margin-bottom:20px;">'
-            '<div style="font-size:12px;font-weight:600;letter-spacing:0.1em;color:#6e6e73;text-transform:uppercase;">Daily Briefing</div>'
-            '<div style="font-size:28px;font-weight:700;color:#1d1d1f;margin-top:4px;">Paddle Coach</div>'
-            '<div style="font-size:14px;color:#6e6e73;margin-top:2px;">' + now_eastern().strftime("%A, %B %d, %Y") + '</div>'
-            '</div>'
-
-            + tnrl_html
-
-            # Miles chart
-            + '<div style="background:#f5f5f7;border-radius:16px;padding:18px 20px 14px;margin-bottom:12px;">'
-            '<div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#6e6e73;text-transform:uppercase;margin-bottom:10px;">Miles — Last 14 Days</div>'
-            + miles_svg + legend_html +
-            '</div>'
-
-            # Effort chart
-            + '<div style="background:#f5f5f7;border-radius:16px;padding:18px 20px 14px;margin-bottom:20px;">'
-            '<div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#6e6e73;text-transform:uppercase;margin-bottom:10px;">Relative Effort — Last 14 Days</div>'
-            + effort_svg + legend_html +
-            '</div>'
-
-            # Sections
-            + '<div style="border-top:1px solid #e5e5ea;padding-top:20px;margin-bottom:20px;">'
-            '<div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#6e6e73;text-transform:uppercase;margin-bottom:8px;">Performance Summary</div>'
-            '<div style="font-size:15px;color:#1d1d1f;line-height:1.65;">' + sections["PERFORMANCE SUMMARY"] + '</div></div>'
-
-            '<div style="border-top:1px solid #e5e5ea;padding-top:20px;margin-bottom:20px;">'
-            '<div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#6e6e73;text-transform:uppercase;margin-bottom:8px;">Tomorrow\'s Workout</div>'
-            '<div style="font-size:15px;color:#1d1d1f;line-height:1.65;">' + sections["TOMORROW'S WORKOUT"] + '</div></div>'
-
-            '<div style="border-top:1px solid #e5e5ea;padding-top:20px;margin-bottom:20px;">'
-            '<div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#6e6e73;text-transform:uppercase;margin-bottom:8px;">Stroke Tip</div>'
-            '<div style="font-size:15px;color:#1d1d1f;line-height:1.65;">' + sections["STROKE TIP"] + '</div></div>'
-
-            '<div style="border-top:1px solid #e5e5ea;padding-top:20px;margin-bottom:32px;">'
-            '<div style="font-size:11px;font-weight:600;letter-spacing:0.1em;color:#6e6e73;text-transform:uppercase;margin-bottom:8px;">Coach\'s Note</div>'
-            '<div style="font-size:15px;color:#1d1d1f;line-height:1.65;font-style:italic;">' + sections["COACH'S NOTE"] + '</div></div>'
-
-            '<div style="font-size:12px;color:#aeaeb2;text-align:center;border-top:1px solid #e5e5ea;padding-top:20px;">'
-            'Paddle Coach &bull; Your AI surfski training assistant</div>'
-            '</div></body></html>'
-        )
+        tnrl_html = '<div class="tnrl-banner">' + tnrl_note + '</div>'
 
     # ----------------------------------------
     # WEB VERSION
@@ -706,14 +628,12 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
         '<div class="card"><div class="card-label">Performance Summary</div>'
         '<div class="card-content">' + sections["PERFORMANCE SUMMARY"] + '</div></div>'
 
-        '<div class="card"><div class="card-label">Tomorrow\'s Workout</div>'
-        '<div class="card-content">' + sections["TOMORROW'S WORKOUT"] + '</div></div>'
+        '<div class="card"><div class="card-label">Next Workout</div>'
+        '<div class="card-content">' + sections["NEXT WORKOUT"] + '</div></div>'
 
         '<div class="card"><div class="card-label">Stroke Tip</div>'
         '<div class="card-content">' + sections["STROKE TIP"] + '</div></div>'
 
-        '<div class="card"><div class="card-label">Coach\'s Note</div>'
-        '<div class="card-content italic">' + sections["COACH'S NOTE"] + '</div></div>'
 
         '</div>'
         '<script>'
@@ -723,28 +643,6 @@ def build_html_page(chart_data, advice, tnrl_note, is_email=False):
     )
 
 
-# ----------------------------------------
-# SEND DAILY EMAIL AT 9PM EASTERN
-# ----------------------------------------
-def send_daily_email():
-    print("Sending daily coaching email...")
-    chart_data, workout_summary, advice, tnrl_note = run_paddle_coach()
-    html_content = build_html_page(chart_data, advice, tnrl_note, is_email=True)
-    resend.Emails.send({
-        "from": "onboarding@resend.dev",
-        "to": "chris@chrispeterson.com",
-        "subject": "Paddle Coach - " + now_eastern().strftime("%A, %B %d"),
-        "html": html_content,
-    })
-    print("Email sent!")
-
-
-# ----------------------------------------
-# SCHEDULER — 9pm Eastern daily
-# ----------------------------------------
-scheduler = BackgroundScheduler(timezone="America/New_York")
-scheduler.add_job(send_daily_email, "cron", hour=21, minute=0)
-scheduler.start()
 
 
 # ----------------------------------------
@@ -753,7 +651,7 @@ scheduler.start()
 @app.route("/")
 def home():
     chart_data, workout_summary, advice, tnrl_note = run_paddle_coach()
-    return build_html_page(chart_data, advice, tnrl_note, is_email=False)
+    return build_html_page(chart_data, advice, tnrl_note)
 
 
 # ----------------------------------------
