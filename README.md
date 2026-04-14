@@ -1,22 +1,17 @@
 # 🏄 Paddle Coach
 
-A personal AI coaching assistant for competitive surfski paddlers. Paddle Coach pulls your recent workouts from Strava, analyzes your training load relative to your upcoming race schedule, and delivers a daily coaching briefing via email every evening at 9pm Eastern.
+A personal AI training assistant for surfski paddlers, built in Python and hosted on Railway, that connects to Strava, analyzes workouts, and delivers daily coaching advice via a browser-based briefing.
 
 ---
 
 ## What It Does
 
-Every day at 9pm Eastern, Paddle Coach:
+Open the app in any browser to get a fresh daily briefing that includes:
 
-1. Fetches your recent activities from Strava
-2. Builds two 14-day training charts (miles and relative effort)
-3. Sends a personalized email with:
-   - A performance summary based on your recent load and intensity
-   - A tomorrow's workout recommendation designed around your race calendar and periodization
-   - A stroke tip from elite surfski and K1 coaches, with a clickable source link when available
-   - A coach's note based on where you are in your training cycle
-
-You can also view the briefing anytime in your browser at your Railway URL.
+1. Two 14-day training charts (miles and relative effort)
+2. A performance summary based on your recent load and intensity
+3. A next workout recommendation with a 3-session forward preview, planned around your race calendar
+4. A stroke tip from elite surfski and K1 coaches, with a clickable source link when available
 
 ---
 
@@ -24,7 +19,7 @@ You can also view the briefing anytime in your browser at your Railway URL.
 
 | File | What It Does |
 |---|---|
-| `main.py` | The brain of the app — Strava integration, AI prompt, charts, web page, email sender, scheduler |
+| `main.py` | The brain of the app — Strava integration, AI prompt, charts, web page |
 | `races.py` | Your race schedule — update this each year |
 | `sources.py` | Trusted coaching sources used to generate stroke tips |
 | `requirements.txt` | Python packages Railway needs to run the app |
@@ -49,6 +44,22 @@ Races that have already passed are automatically filtered out — no need to del
 
 ---
 
+## Athlete Profile
+
+The AI is calibrated to the following athlete profile, defined in the prompt inside `main.py`:
+
+- **Age:** Born 1967
+- **Sex:** Male
+- **Location:** South Florida
+- **Heart rate zones:**
+  - Z2 Endurance: 121–149 bpm (easy, long sessions)
+  - Z4 Threshold: 165–178 bpm (tempo and interval work)
+  - Z5 Max: 179+ bpm (race pace only, not to exceed in training)
+
+To update these, edit the athlete description at the top of the prompt in `main.py`.
+
+---
+
 ## Activity Classification
 
 The app classifies Strava activities automatically:
@@ -69,18 +80,16 @@ The app classifies Strava activities automatically:
 
 ## Charts
 
-Two bar charts are shown on the web page and in the email:
+Two bar charts show the last 14 days using a single letter for day of week (M T W T F S S):
 
-- **Miles — Last 14 Days:** Shows distance per day by activity type
-- **Relative Effort — Last 14 Days:** Shows Strava's suffer score per day, using the same colors and time scale
-
-Both charts use a single letter for the day of the week (M T W T F S S).
+- **Miles — Last 14 Days:** Distance per day by activity type
+- **Relative Effort — Last 14 Days:** Strava's suffer score per day, using the same colors and time scale
 
 ---
 
 ## Coaching Logic
 
-The AI coaches around your race calendar with these rules:
+The AI plans workouts around your race calendar with these rules:
 
 - Recommends rest if you've been paddling hard multiple days in a row with high effort
 - Prescribes a quality session if you've had 2+ consecutive rest days
@@ -88,7 +97,9 @@ The AI coaches around your race calendar with these rules:
 - Prescribes mostly easy paddling or rest in the week before a race
 - Tracks interval sessions and suggests one if it's been 4+ days since your last
 - Never criticizes a recent easy/short session — assumes it was intentional recovery
-- Reminds you about TNRL on Tuesday evenings between March and July instead of prescribing a workout
+- Uses your actual HR zones when prescribing intensity targets
+- Shows the next 7 days as a calendar so race days are never confused with training days
+- Reminds you about TNRL on Tuesday evenings between March and July
 
 ---
 
@@ -108,7 +119,6 @@ These must be set in your Railway project under **Variables**:
 | `STRAVA_CLIENT_ID` | Your Strava app Client ID (found at strava.com/settings/api) |
 | `STRAVA_CLIENT_SECRET` | Your Strava app Client Secret |
 | `STRAVA_REFRESH_TOKEN` | Your Strava refresh token |
-| `RESEND_API_KEY` | Your Resend API key for sending emails |
 | `PORT` | Set to `8080` |
 
 ---
@@ -127,18 +137,18 @@ The app automatically refreshes the Strava access token every time it runs. Howe
 
 ## Coaching Sources
 
-Stroke tips are drawn from elite surfski and K1 coaches in priority order:
+Stroke tips are drawn from elite surfski and K1 coaches, rotated equally:
 
 | Coach | Specialty |
 |---|---|
 | Boyan Zlatarev — Surfski Center Tarifa | Downwind, wave reading, energy efficiency (Chris's personal coach) |
-| Oscar Chalupsky | Forward stroke fundamentals, downwind, ocean racing |
 | Dawid & Jasper Mocke — Mocke Paddling | Stroke mechanics, catch, drills |
 | Ivan Lawler — Ultimate Kayaks | K1 technique, foot drive, leg drive, rotation |
 | Greg Barton — Epic Kayaks | Olympic-level stroke fundamentals |
 | Sean Rice — PaddleLife | Race tactics, wash riding, performance training |
 | K2N Online Paddle School | Kinetic chain, progression-based technique |
 | Paddle 2 Fitness — Julian Norton-Smith | Coaching cues, polarized training, catch activation |
+| Oscar Chalupsky | Forward stroke fundamentals, downwind, ocean racing |
 
 To add or adjust sources, edit `sources.py`.
 
@@ -151,9 +161,7 @@ To add or adjust sources, edit `sources.py`.
 | Hosting | Railway |
 | AI | OpenAI GPT-4o-mini |
 | Fitness Data | Strava API |
-| Email | Resend |
 | Web Framework | Flask (Python) |
-| Scheduler | APScheduler |
 | Timezone | pytz (Eastern time) |
 
 ---
@@ -163,4 +171,5 @@ To add or adjust sources, edit `sources.py`.
 - Multi-user support with Strava OAuth login for each paddler
 - Garmin Connect integration for paddlers not on Strava
 - Personal coaching notes file to inform stroke tips
-- Group email for the paddling club
+- Group email or SMS for the paddling club
+- React front end for the multi-user version
