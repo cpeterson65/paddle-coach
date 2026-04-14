@@ -365,7 +365,7 @@ def run_paddle_coach():
     # ----------------------------------------
     prompt = (
         "You are an elite surfski coach writing a daily coaching briefing for Chris, "
-        "a male born in 1967 competitive surfski paddler in South Florida.\n\n"
+        "a male born in 1967 competitive surfski paddler with a max heart rate of about 189 in South Florida.\n\n"
         "UPCOMING RACES:\n" + race_text
         + "\n\nNEXT RACE: " + next_race_text
         + "\n\nNEXT 7 DAYS (use these exact dates when planning workouts and the 3-session preview):\n" + next_7_days_text
