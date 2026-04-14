@@ -460,15 +460,17 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
         )
     else:
         # Effort / suffer score chart — same colors, different metric
-        paddle_effort = json.dumps([int(d["suffer_score"]) if (d["paddle"] > 0 or d["interval"] > 0) else 0 for d in chart_data])
+        paddle_effort = json.dumps([int(d["suffer_score"]) if d["paddle"] > 0 else 0 for d in chart_data])
         race_effort = json.dumps([int(d["suffer_score"]) if d["race"] > 0 else 0 for d in chart_data])
         strength_data = json.dumps([20 if d["strength"] else 0 for d in chart_data])
         tooltip_cb = (
             'if (c.dataset.label === "Strength") return "Strength training";'
             'return c.dataset.label + " effort: " + c.raw;'
         )
+        interval_effort = json.dumps([int(d["suffer_score"]) if d["interval"] > 0 else 0 for d in chart_data])
         datasets = (
             '{ label: "Paddle", data: ' + paddle_effort + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
+            '{ label: "Intervals", data: ' + interval_effort + ', backgroundColor: "#9b59b6", borderRadius: 4, stack: "stack" },'
             '{ label: "Race", data: ' + race_effort + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
             '{ label: "Strength", data: ' + strength_data + ', backgroundColor: "#34c759", borderRadius: 4, stack: "stack" }'
         )
