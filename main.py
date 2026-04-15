@@ -591,7 +591,7 @@ def build_html_page(chart_data, advice, tnrl_note):
     return (
         "<!DOCTYPE html><html lang='en'><head>"
         '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        "<title>Paddle Coach</title>"
+        "<title>Coach Paddie</title>"
         '<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>'
         "<style>"
         "* { box-sizing: border-box; margin: 0; padding: 0; }"
@@ -615,8 +615,8 @@ def build_html_page(chart_data, advice, tnrl_note):
         '<div class="container">'
 
         '<div class="header">'
-        '<div class="header-label">Daily Briefing</div>'
-        '<div class="header-title">Paddle Coach</div>'
+        '<div class="header-label">⚙ Clankers Collective</div>'
+        '<div class="header-title">Coach Paddie</div>'
         '<div class="header-date">' + now_eastern().strftime("%A, %B %d, %Y") + '</div>'
         '</div>'
 
