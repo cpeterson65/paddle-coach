@@ -48,12 +48,6 @@ UPCOMING_RACES = [
         "distance": "6 miles",
     },
     {
-        "name": "Lanakila Iki",
-        "location": "Hollywood, FL",
-        "date": "August 9, 2026",
-        "distance": "9 miles",
-    },
-    {
         "name": "Peanut Island",
         "location": "Riviera Beach, FL",
         "date": "October 15, 2026",  # Approximate — update when confirmed
