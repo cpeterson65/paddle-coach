@@ -30,7 +30,7 @@ UPCOMING_RACES = [
         "distance": "5 miles",
     },
     {
-        "name": "Palm Beach Outrigger Fundraiser",
+        "name": "Jupiter Classic",
         "location": "Jupiter, FL",
         "date": "May 23, 2026",
         "distance": "7 miles",
