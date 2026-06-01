@@ -365,10 +365,7 @@ def run_paddle_coach():
     # ----------------------------------------
     prompt = (
         "You are an elite surfski coach writing a daily coaching briefing for Chris, "
-        "a male born in 1967 competitive surfski paddler in South Florida with the following heart rate zones:\n"
-        "- Z2 Endurance: 121-149 bpm (easy, long sessions)\n"
-        "- Z4 Threshold: 165-178 bpm (tempo and interval work)\n"
-        "- Z5 Max: 179+ bpm (not to exceed in training or race)\n\n"
+        "a competitive surfski paddler in South Florida.\n\n"
         "UPCOMING RACES:\n" + race_text
         + "\n\nNEXT RACE: " + next_race_text
         + "\n\nNEXT 7 DAYS (use these exact dates when planning workouts and the 3-session preview):\n" + next_7_days_text
@@ -392,15 +389,15 @@ def run_paddle_coach():
         "- In the 2 weeks before a race, taper: reduce volume, maintain some intensity.\n"
         "- In the week before a race, prescribe mostly easy paddling or rest.\n"
         "- On race day itself, just a brief warm-up paddle.\n"
-        "- If tomorrow is a Tuesday during daylight saving time, remind him about TNRL instead of prescribing a workout.\n"
+        "- If tomorrow is a Tuesday between March 1 and July 1, remind him about TNRL instead of prescribing a workout.\n"
         "- If a rest day is genuinely the right call, say so clearly and explain why.\n"
         "- Do NOT criticize a recent easy or short session — assume it was intentional recovery.\n"
         "Give type, duration, and a specific heart rate target or effort level.\n"
-        "Then on a new line, add one natural sentence previewing the next 3 sessions after that. "
-        "You MUST use the exact day names and dates from the NEXT 7 DAYS list above — do not invent or shift dates. "
-        "Any day marked [RACE DAY] must be described as race day in your preview. "
-        "Double-check: if the NEXT 7 DAYS list shows Saturday April 18 as [RACE DAY], your sentence must say Saturday is race day. "
-        "Example format: After this, Thursday will be a rest day, Friday an easy paddle, and Saturday is race day.\n\n"
+        "Then on a new line, write one sentence previewing the next 3 days using the NEXT 7 DAYS calendar above. "
+"You MUST use the exact day names from that list. "
+"Any day marked [RACE DAY] must be called race day — do not invent race days that are not in the list. "
+"Only mention session types, not durations or HR targets in this sentence. "
+"Example: After this, Wednesday will be a rest day, Thursday an easy paddle, and Saturday is race day for Black Belt.\n\n"
 
         "3. STROKE TIP\n"
         "One specific, actionable technique cue for surfski or K1 paddling — not a list. "
@@ -466,17 +463,15 @@ def build_chart_script(chart_data, canvas_id, chart_type="miles"):
         )
     else:
         # Effort / suffer score chart — same colors, different metric
-        paddle_effort = json.dumps([int(d["suffer_score"]) if d["paddle"] > 0 else 0 for d in chart_data])
+        paddle_effort = json.dumps([int(d["suffer_score"]) if (d["paddle"] > 0 or d["interval"] > 0) else 0 for d in chart_data])
         race_effort = json.dumps([int(d["suffer_score"]) if d["race"] > 0 else 0 for d in chart_data])
         strength_data = json.dumps([20 if d["strength"] else 0 for d in chart_data])
         tooltip_cb = (
             'if (c.dataset.label === "Strength") return "Strength training";'
             'return c.dataset.label + " effort: " + c.raw;'
         )
-        interval_effort = json.dumps([int(d["suffer_score"]) if d["interval"] > 0 else 0 for d in chart_data])
         datasets = (
             '{ label: "Paddle", data: ' + paddle_effort + ', backgroundColor: "#3a7bd5", borderRadius: 4, stack: "stack" },'
-            '{ label: "Intervals", data: ' + interval_effort + ', backgroundColor: "#9b59b6", borderRadius: 4, stack: "stack" },'
             '{ label: "Race", data: ' + race_effort + ', backgroundColor: "#ff6b35", borderRadius: 4, stack: "stack" },'
             '{ label: "Strength", data: ' + strength_data + ', backgroundColor: "#34c759", borderRadius: 4, stack: "stack" }'
         )
@@ -615,7 +610,7 @@ def build_html_page(chart_data, advice, tnrl_note):
         '<div class="container">'
 
         '<div class="header">'
-        '<div class="header-label">⚙ Clankers Collective</div>'
+        '<div class="header-label">Clankers Collective</div>'
         '<div class="header-title">Coach Paddie</div>'
         '<div class="header-date">' + now_eastern().strftime("%A, %B %d, %Y") + '</div>'
         '</div>'
