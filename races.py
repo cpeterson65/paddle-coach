@@ -14,7 +14,7 @@ UPCOMING_RACES = [
     {
         "name": "Treasure Coast",
         "location": "Fort Pierce, FL",
-        "date": "March 7, 2026",
+        "date": "March 6, 2027",
         "distance": "10 kilometers",
     },
     {
@@ -50,7 +50,7 @@ UPCOMING_RACES = [
     {
         "name": "Peanut Island",
         "location": "Riviera Beach, FL",
-        "date": "October 15, 2026",  # Approximate — update when confirmed
+        "date": "October 15, 2027",  # Approximate — update when confirmed
         "distance": "4 miles",
     },
     {
